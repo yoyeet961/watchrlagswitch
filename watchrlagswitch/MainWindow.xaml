@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:watchrlagswitch"
         mc:Ignorable="d"
-        Title="MainWindow" Height="200" Width="200" ResizeMode="CanMinimize">
+        Title="watchr lag switch" Height="200" Width="200" ResizeMode="CanMinimize">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="20"/>
@@ -14,7 +14,10 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <TextBlock>lagswitch by watchr</TextBlock>
+        <TextBox Name="HotkeyBox" Width="75" Margin="100,0,0,0" PreviewMouseLeftButtonDown="HotkeyBox_MouseDown" IsReadOnly="True" ToolTip="Hotkey">F7</TextBox>
         <TextBlock Grid.Row="1" Name="StateText">State: OFF</TextBlock>
+        <CheckBox Name="RecvCB" Grid.Row="1" Margin="75,0,0,0" Checked="RecvCB_Checked" Unchecked="RecvCB_Unchecked" IsChecked="True" ToolTip="Block received packets">RECV</CheckBox>
+        <CheckBox Name="SendCB" Grid.Row="1" Margin="135,0,0,0" Checked="SendCB_Checked" Unchecked="SendCB_Unchecked" IsChecked="True" ToolTip="Block sent packets">SEND</CheckBox>
         <Button Grid.Row="2" Name="StartButton" FontSize="24" Click="StartButton_Click">START</Button>
         <Button Grid.Row="3" Name="StopButton" FontSize="24" Click="StopButton_Click">STOP</Button>
     </Grid>

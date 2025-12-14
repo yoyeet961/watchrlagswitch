@@ -1,11 +1,14 @@
 ﻿using System.Diagnostics;
 using System.IO;
+using System.Reflection.Metadata;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
@@ -13,14 +16,113 @@ using WinDivertSharp;
 
 namespace watchrlagswitch
 {
+    public class GetKeyPressed
+    {
+        private const int WH_KEYBOARD_LL = 13;
+        private const int WM_KEYDOWN = 0x0100;
+        private const int WM_SYSKEYDOWN = 0x0104;
+
+        private static IntPtr _hook;
+        private static LowLevelKeyboardProc _proc = HookCallback;
+
+        public static event Action<Key> KeyCaptured;
+
+        public static void Start()
+        {
+            if (_hook != IntPtr.Zero)
+                return;
+
+            using Process p = Process.GetCurrentProcess();
+            using ProcessModule m = p.MainModule;
+
+            _hook = SetWindowsHookEx(
+                WH_KEYBOARD_LL,
+                _proc,
+                GetModuleHandle(m.ModuleName),
+                0
+            );
+        }
+
+        public static void Stop()
+        {
+            if (_hook == IntPtr.Zero)
+                return;
+
+            UnhookWindowsHookEx(_hook);
+            _hook = IntPtr.Zero;
+        }
+
+        private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+        {
+            if (nCode >= 0 &&
+               (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN))
+            {
+                int vk = Marshal.ReadInt32(lParam);
+
+                Key key = KeyInterop.KeyFromVirtualKey(vk);
+
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    KeyCaptured?.Invoke(key);
+                });
+
+                Stop();
+                return (IntPtr)1;
+            }
+
+            return CallNextHookEx(_hook, nCode, wParam, lParam);
+        }
+
+        private delegate IntPtr LowLevelKeyboardProc(
+            int nCode, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SetWindowsHookEx(
+            int idHook, LowLevelKeyboardProc lpfn,
+            IntPtr hMod, uint dwThreadId);
+
+        [DllImport("user32.dll")]
+        private static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr CallNextHookEx(
+            IntPtr hhk, int nCode,
+            IntPtr wParam, IntPtr lParam);
+
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GetModuleHandle(string name);
+    }
+
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
     public partial class MainWindow : Window
     {
+        private const int WM_HOTKEY = 0x0312;
+        private const uint MOD_ALT = 0x0001;
+        private const uint MOD_CONTROL = 0x0002;
+        private const uint MOD_SHIFT = 0x0004;
+        private const uint MOD_WIN = 0x0008;
+        private const int HOTKEY_ID = 0x6741; // Yoo this hotkey id so Tuff 🔥🔥
         public uint packetLen;
         public bool started = false;
+        public bool blocksent = true;
+        public bool blockrecv = true;
         Dictionary<string, bool> robloxfilter = new Dictionary<string, bool>();
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool RegisterHotKey(
+            IntPtr hWnd,
+            int id,
+            uint fsModifiers,
+            uint vk
+        );
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool UnregisterHotKey(
+            IntPtr hWnd,
+            int id
+        );
+        private HwndSource _source;
+
         public bool isRoblox(string ip) // idk why people dont use this method
         {
             if (robloxfilter.ContainsKey(ip))
@@ -152,7 +254,7 @@ namespace watchrlagswitch
                 string dstIP = $"{dst1}.{dst2}.{dst3}.{dst4}";
 
                 bool isrbx = isRoblox(srcIP);
-                if (started && isrbx)
+                if (started && isrbx && blockrecv)
                 {
                     string[] ftr = "82 284 85 1185 1162 1158 79 101 216 264".Split(" ");
                     List<uint> ftr2 = new List<uint>();
@@ -224,7 +326,7 @@ namespace watchrlagswitch
                 string dstIP = $"{dst1}.{dst2}.{dst3}.{dst4}";
 
                 bool isrbx = isRoblox(dstIP);
-                if (started && isrbx)
+                if (started && isrbx && blocksent)
                 {
                     string[] ftr = "93 1158 232 87 109 1158 280 176 105 278 236 304 84 1162 1052 1162 1122 517 197 874 892 741 822 1120 1133 1151 1134 477 1165 1146".Split(" ");
                     List<uint> ftr2 = new List<uint>();
@@ -271,6 +373,77 @@ namespace watchrlagswitch
                 t.IsBackground = true;
                 t.Start();
             }
+
+            this.Loaded += MainWindow_Loaded;
+            this.Closed += MainWindow_Closed;
+        }
+        int hotkey = KeyInterop.VirtualKeyFromKey(Key.F7);
+
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            IntPtr handle = new WindowInteropHelper(this).Handle;
+            _source = HwndSource.FromHwnd(handle);
+            _source.AddHook(WndProc);
+
+            if (File.Exists("hotkey.txt"))
+            {
+                hotkey = int.Parse(File.ReadAllText("hotkey.txt"));
+            } else
+            {
+                File.WriteAllText("hotkey.txt", hotkey.ToString());
+            }
+            HotkeyBox.Text = KeyInterop.KeyFromVirtualKey(hotkey).ToString();
+
+            bool success = RegisterHotKey(
+                handle,
+                HOTKEY_ID,
+                0,
+                (uint)hotkey
+            );
+            if (!success)
+            {
+                MessageBox.Show("Error registering hotkey", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void MainWindow_Closed(object sender, EventArgs e)
+        {
+            IntPtr handle = new WindowInteropHelper(this).Handle;
+            UnregisterHotKey(handle, HOTKEY_ID);
+            _source?.RemoveHook(WndProc);
+        }
+
+        private IntPtr WndProc(
+            IntPtr hwnd,
+            int msg,
+            IntPtr wParam,
+            IntPtr lParam,
+            ref bool handled)
+        {
+            if (msg == WM_HOTKEY && wParam.ToInt32() == HOTKEY_ID)
+            {
+                OnHotkeyPressed();
+                handled = true;
+            }
+
+            return IntPtr.Zero;
+        }
+
+        private void OnHotkeyPressed()
+        {
+            Dispatcher.Invoke(() =>
+            {
+                Debug.WriteLine("hotkey");
+                started = !started;
+                if (StateText.Text == "State: ON")
+                {
+                    StateText.Text = "State: OFF";
+                }
+                else
+                {
+                    StateText.Text = "State: ON";
+                }
+            });
         }
 
         private void StartButton_Click(object sender, RoutedEventArgs e)
@@ -283,6 +456,51 @@ namespace watchrlagswitch
         {
             started = false;
             StateText.Text = "State: OFF";
+        }
+
+        private void HotkeyBox_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            HotkeyBox.Text = "...";
+            GetKeyPressed.Start();
+            GetKeyPressed.KeyCaptured += GetKeyPressed_KeyCaptured;
+        }
+
+        private void GetKeyPressed_KeyCaptured(Key obj)
+        {
+            IntPtr handle = new WindowInteropHelper(this).Handle;
+            HotkeyBox.Text = obj.ToString();
+            UnregisterHotKey(handle, HOTKEY_ID);
+            bool success = RegisterHotKey(
+                handle,
+                HOTKEY_ID,
+                0,
+                (uint)KeyInterop.VirtualKeyFromKey(obj)
+            );
+            if (!success)
+            {
+                MessageBox.Show("Error registering hotkey", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            File.WriteAllText("hotkey.txt", KeyInterop.VirtualKeyFromKey(obj).ToString());
+        }
+
+        private void RecvCB_Checked(object sender, RoutedEventArgs e)
+        {
+            blockrecv = true;
+        }
+
+        private void RecvCB_Unchecked(object sender, RoutedEventArgs e)
+        {
+            blockrecv = false;
+        }
+
+        private void SendCB_Checked(object sender, RoutedEventArgs e)
+        {
+            blocksent = true;
+        }
+
+        private void SendCB_Unchecked(object sender, RoutedEventArgs e)
+        {
+            blocksent = false;
         }
     }
 }
