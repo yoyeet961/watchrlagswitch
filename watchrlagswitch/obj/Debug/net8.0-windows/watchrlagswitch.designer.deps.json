@@ -1,0 +1,28 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "WinDivertSharp/1.4.3.3": {
+        "runtime": {
+          "lib/netstandard2.0/WinDivertSharp.dll": {
+            "assemblyVersion": "1.4.3.3",
+            "fileVersion": "1.4.3.3"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "WinDivertSharp/1.4.3.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-yjmTvL1TtdTowrFPGe9uoy6vrpOE6gsROr8KK50+fw2WD7XC0E9xK7aEuaTSXXBye29h+rHQxN2C2ZufsfA/fw==",
+      "path": "windivertsharp/1.4.3.3",
+      "hashPath": "windivertsharp.1.4.3.3.nupkg.sha512"
+    }
+  }
+}
