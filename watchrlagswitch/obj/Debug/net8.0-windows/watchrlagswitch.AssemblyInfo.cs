@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("watchrlagswitch")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+87985fd5ac4ecfd341420a00011b4dfa1d255fa6")]
 [assembly: System.Reflection.AssemblyProductAttribute("watchrlagswitch")]
 [assembly: System.Reflection.AssemblyTitleAttribute("watchrlagswitch")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
